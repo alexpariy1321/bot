@@ -12,7 +12,7 @@ from aiohttp import web
 ADMIN_ID = 174812505  
 
 # Ссылка на ваш канал
-CHANNEL_LINK = "https://t.me/netoxicalex" 
+CHANNEL_LINK = "https://t.me/AlexeyPariy" 
 
 # --- Инициализация ---
 try:
@@ -172,3 +172,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
