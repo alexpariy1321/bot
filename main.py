@@ -18,11 +18,11 @@ dp = Dispatcher()
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     kb = [
-        [types.KeyboardButton(text="👋 Обо мне")],
-        [types.KeyboardButton(text="💼 Мои услуги")]
+        [types.KeyboardButton(text="👋 Кто я")],
+        [types.KeyboardButton(text="💼 Услуги")]
     ]
     keyboard = types.ReplyKeyboardMarkup(keyboard=kb, resize_keyboard=True)
-    await message.answer("Привет! Я ваш HR-помощник. Чем могу помочь?", reply_markup=keyboard)
+    await message.answer("Привет! Я ваш личный психолог. Чем могу помочь?", reply_markup=keyboard)
 
 # Хэндлер на нажатие кнопок
 @dp.message()
@@ -40,5 +40,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
