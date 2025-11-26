@@ -1,6 +1,7 @@
 import os
 import logging
 import asyncio
+import aiohttp
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters.command import Command
 from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
@@ -155,9 +156,26 @@ async def flow_get_contact(message: types.Message):
 async def back_home(message: types.Message):
     await cmd_start(message)
 
-# --- WEB SERVER (Для Render) ---
+# --- ФИНАЛЬНАЯ ВЕРСИЯ C САМО-ПИНГОМ ---
+
 async def health_check(request):
     return web.Response(text="Bot is alive")
+
+async def keep_alive():
+    """Функция, которая сама себя пингует каждые 10 минут"""
+    while True:
+        await asyncio.sleep(600)  # Ждем 10 минут (600 секунд)
+        try:
+            # ВМЕСТО 'https://ваш-проект.onrender.com'
+            # RENDER сам знает свой адрес внутри системы, можно стучаться локально
+            # Но для надежности лучше указать полный внешний адрес.
+            # Если вы не знаете точный адрес, используйте локальный хост:
+            async with aiohttp.ClientSession() as session:
+                # Стучимся сами к себе на локальный порт
+                async with session.get('http://127.0.0.1:8080') as resp:
+                    logging.info(f"Self-Ping status: {resp.status}")
+        except Exception as e:
+            logging.error(f"Self-Ping error: {e}")
 
 async def start_web_server():
     app = web.Application()
@@ -168,8 +186,14 @@ async def start_web_server():
     await site.start()
 
 async def main():
-    await asyncio.gather(start_web_server(), dp.start_polling(bot))
+    # Запускаем: Веб-сервер + Бота + Само-Пинг
+    await asyncio.gather(
+        start_web_server(),
+        dp.start_polling(bot),
+        keep_alive()  # <--- Добавили вот это
+    )
 
 if __name__ == "__main__":
+    # ВАЖНО: Нужно импортировать aiohttp внутри кода или в начале файла
+    # Убедитесь, что в самом верху файла есть: import aiohttp
     asyncio.run(main())
-
