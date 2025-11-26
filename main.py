@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters.command import Command
 
 # ВСТАВЬТЕ СЮДА ВАШ ТОКЕН ВНУТРИ КАВЫЧЕК
-TOKEN = "8429387047:AAGDsLN7rTTZJQNr52FhDHcLxP-3-NAUQKY"
+TOKEN = os.getenv("TOKEN")
 
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
@@ -39,3 +39,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
