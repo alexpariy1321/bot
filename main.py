@@ -13,7 +13,7 @@ from aiohttp import web
 ADMIN_ID = 174812505  
 
 # Ссылка на ваш канал
-CHANNEL_LINK = "https://t.me/AlexeyPariy" 
+CHANNEL_LINK = "https://t.me/netoxicHR" 
 
 # --- Инициализация ---
 try:
@@ -197,3 +197,4 @@ if __name__ == "__main__":
     # ВАЖНО: Нужно импортировать aiohttp внутри кода или в начале файла
     # Убедитесь, что в самом верху файла есть: import aiohttp
     asyncio.run(main())
+
