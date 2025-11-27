@@ -7,6 +7,7 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from aiogram.types import FSInputFile
 from aiohttp import web
 import aiohttp
+from prompts import get_system_prompt
 
 # --- 1. БИБЛИОТЕКА GIGACHAT ---
 from gigachat import GigaChat
@@ -34,16 +35,6 @@ if GIGA_KEY:
 else:
     ai_model = None
     logging.warning("⚠️ GIGA_KEY не найден!")
-
-# --- 3. ЛИЧНОСТЬ БОТА ---
-SYSTEM_PROMPT = (
-    "Ты — Кибер-Ронин, ассистент психолога Алексея. "
-    "Твоя миссия — быть спокойным проводником. "
-    "Отвечай кратко, тепло, не ставь диагнозы. Предлагай помощь."
-)
-
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
 
 # --- ТЕКСТЫ И КНОПКИ ---
 BTN_BATTERY = "🔋 Батарейка на нуле"
@@ -144,7 +135,7 @@ async def flow_get_contact(message: types.Message):
     except Exception as e:
         logging.error(e)
 
-# --- 4. УМНЫЙ МОЗГ (GIGACHAT - SIMPLE VERSION) ---
+# --- 4. УМНЫЙ МОЗГ (GIGACHAT) ---
 @dp.message(F.text)
 async def ai_chat_handler(message: types.Message):
     kb = ReplyKeyboardBuilder()
@@ -157,12 +148,21 @@ async def ai_chat_handler(message: types.Message):
     await bot.send_chat_action(message.chat.id, "typing")
 
     try:
-        # Склеиваем Промпт и Сообщение в один текст
-        # Это самый надежный способ для GigaChat API
-        full_text = f"{SYSTEM_PROMPT}\n\nПользователь пишет: {message.text}"
+        # БЕРЕМ ПРОМПТ ИЗ ФАЙЛА
+        system_text = get_system_prompt()
         
-        # Просто отправляем строку текста
+        # Склеиваем инструкцию и вопрос
+        full_text = f"{system_text}\n\nПользователь пишет: {message.text}"
+        
+        # Отправляем
         response = await asyncio.to_thread(ai_model.chat, full_text)
+        ai_answer = response.choices[0].message.content
+
+        await message.answer(ai_answer, reply_markup=kb.as_markup(resize_keyboard=True))
+
+    except Exception as e:
+        logging.error(f"AI Error: {e}")
+        await message.answer("Помехи в эфире... Вернись к костру.", reply_markup=kb.as_markup(resize_keyboard=True))
         
         # Получаем ответ
         ai_answer = response.choices[0].message.content
@@ -205,4 +205,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
