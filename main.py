@@ -144,7 +144,7 @@ async def flow_get_contact(message: types.Message):
     except Exception as e:
         logging.error(e)
 
-# --- 4. УМНЫЙ МОЗГ (GIGACHAT) ---
+# --- 4. УМНЫЙ МОЗГ (GIGACHAT - SIMPLE VERSION) ---
 @dp.message(F.text)
 async def ai_chat_handler(message: types.Message):
     kb = ReplyKeyboardBuilder()
@@ -157,12 +157,14 @@ async def ai_chat_handler(message: types.Message):
     await bot.send_chat_action(message.chat.id, "typing")
 
     try:
-        payload = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": message.text}
-        ]
-        # Используем run в потоке
-        response = await asyncio.to_thread(ai_model.chat, payload)
+        # Склеиваем Промпт и Сообщение в один текст
+        # Это самый надежный способ для GigaChat API
+        full_text = f"{SYSTEM_PROMPT}\n\nПользователь пишет: {message.text}"
+        
+        # Просто отправляем строку текста
+        response = await asyncio.to_thread(ai_model.chat, full_text)
+        
+        # Получаем ответ
         ai_answer = response.choices[0].message.content
 
         await message.answer(ai_answer, reply_markup=kb.as_markup(resize_keyboard=True))
@@ -203,3 +205,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
