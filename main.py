@@ -10,7 +10,7 @@ import aiohttp
 
 # --- БИБЛИОТЕКИ ---
 from gigachat import GigaChat
-from prompts import get_system_prompt  # Импорт мозгов из соседнего файла
+from prompts import get_system_prompt  # Импорт мозгов из файла prompts.py
 
 # --- НАСТРОЙКИ ---
 ADMIN_ID = 174812505
@@ -29,7 +29,7 @@ logging.basicConfig(level=logging.INFO)
 
 # --- НАСТРОЙКА AI ---
 if GIGA_KEY:
-    # verify_ssl_certs=False - важно для Render + Сбер
+    # verify_ssl_certs=False критически важно для Render
     ai_model = GigaChat(credentials=GIGA_KEY, verify_ssl_certs=False)
     logging.info("✅ GigaChat подключен!")
 else:
@@ -53,9 +53,7 @@ TXT_START = (
     "Тишина. Ты добрался.\n"
     "Здесь не нужно притворяться, что у тебя всё под контролем.\n\n"
     "Я — цифровой проводник Алексея. Моя задача — помочь тебе сделать выбор без давления.\n\n"
-    "Что ты чувствуешь прямо сейчас?\n\n"
-    "Если не хочешь выбирать, можешь просто поболтать со мной, я много знаю 🔥\n\n"
-    "Пиши здесь, не стесняйся! Что тебя беспокоит?🤔"
+    "Что ты чувствуешь прямо сейчас?"
 )
 
 # --- ФУНКЦИИ МЕНЮ ---
@@ -69,7 +67,6 @@ async def show_main_menu(message: types.Message, with_photo=True):
     
     try:
         if with_photo:
-            # Убедитесь, что файл bonfire.jpg есть в репозитории
             photo = FSInputFile("bonfire.jpg")
             await message.answer_photo(photo, caption=TXT_START, reply_markup=builder.as_markup(resize_keyboard=True))
         else:
@@ -141,7 +138,7 @@ async def flow_get_contact(message: types.Message):
     except Exception as e:
         logging.error(e)
 
-# --- 4. УМНЫЙ МОЗГ (Подключен к prompts.py) ---
+# --- 4. УМНЫЙ МОЗГ (С ЗАЩИТОЙ ОТ СБОЕВ) ---
 @dp.message(F.text)
 async def ai_chat_handler(message: types.Message):
     # Создаем кнопку возврата
@@ -154,24 +151,36 @@ async def ai_chat_handler(message: types.Message):
 
     await bot.send_chat_action(message.chat.id, "typing")
 
+    # Формируем текст
     try:
-        # 1. Загружаем личность из внешнего файла
         system_text = get_system_prompt()
-        
-        # 2. Формируем единый текст для Сбера
-        full_text = f"{system_text}\n\nСООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ: {message.text}"
-        
-        # 3. Отправляем
+    except:
+        system_text = "Ты — помощник." # Заглушка, если файл prompts.py не читается
+    
+    full_text = f"{system_text}\n\nСООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ: {message.text}"
+
+    # ПОПЫТКА №1
+    try:
         response = await asyncio.to_thread(ai_model.chat, full_text)
         ai_answer = response.choices[0].message.content
-
         await message.answer(ai_answer, reply_markup=kb.as_markup(resize_keyboard=True))
 
     except Exception as e:
-        logging.error(f"AI Error: {e}")
-        await message.answer("Помехи в эфире... Вернись к костру.", reply_markup=kb.as_markup(resize_keyboard=True))
+        logging.warning(f"⚠️ Попытка 1 не удалась: {e}. Пробуем снова...")
+        
+        # ПОПЫТКА №2 (Если Сбер затупил или TimeOut)
+        try:
+            await asyncio.sleep(1) # Даем серверу передышку
+            response = await asyncio.to_thread(ai_model.chat, full_text)
+            ai_answer = response.choices[0].message.content
+            await message.answer(ai_answer, reply_markup=kb.as_markup(resize_keyboard=True))
+            
+        except Exception as e2:
+            # Если и второй раз не вышло - сдаемся честно
+            logging.error(f"❌ AI Fatal Error: {e2}")
+            await message.answer("Связь с ноосферой временно прервана... Попробуй спросить чуть позже.", reply_markup=kb.as_markup(resize_keyboard=True))
 
-# --- СЛУЖЕБНЫЕ ФУНКЦИИ (СЕРВЕР) ---
+# --- СЛУЖЕБНЫЕ ФУНКЦИИ ---
 
 async def health_check(request):
     return web.Response(text="Bot is alive")
@@ -203,5 +212,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
