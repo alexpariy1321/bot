@@ -7,10 +7,10 @@ from aiogram.utils.keyboard import ReplyKeyboardBuilder, InlineKeyboardBuilder
 from aiogram.types import FSInputFile
 from aiohttp import web
 import aiohttp
-from prompts import get_system_prompt
 
-# --- 1. БИБЛИОТЕКА GIGACHAT ---
+# --- БИБЛИОТЕКИ ---
 from gigachat import GigaChat
+from prompts import get_system_prompt  # Импорт мозгов из соседнего файла
 
 # --- НАСТРОЙКИ ---
 ADMIN_ID = 174812505
@@ -23,18 +23,21 @@ except ImportError:
     pass
 
 TOKEN = os.getenv("TOKEN")
-GIGA_KEY = os.getenv("GIGA_KEY") # Ключ Сбера
+GIGA_KEY = os.getenv("GIGA_KEY")
 
 logging.basicConfig(level=logging.INFO)
 
-# --- 2. НАСТРОЙКА GIGACHAT ---
+# --- НАСТРОЙКА AI ---
 if GIGA_KEY:
-    # verify_ssl_certs=False нужно для Render
+    # verify_ssl_certs=False - важно для Render + Сбер
     ai_model = GigaChat(credentials=GIGA_KEY, verify_ssl_certs=False)
     logging.info("✅ GigaChat подключен!")
 else:
     ai_model = None
     logging.warning("⚠️ GIGA_KEY не найден!")
+
+bot = Bot(token=TOKEN)
+dp = Dispatcher()
 
 # --- ТЕКСТЫ И КНОПКИ ---
 BTN_BATTERY = "🔋 Батарейка на нуле"
@@ -64,6 +67,7 @@ async def show_main_menu(message: types.Message, with_photo=True):
     
     try:
         if with_photo:
+            # Убедитесь, что файл bonfire.jpg есть в репозитории
             photo = FSInputFile("bonfire.jpg")
             await message.answer_photo(photo, caption=TXT_START, reply_markup=builder.as_markup(resize_keyboard=True))
         else:
@@ -71,7 +75,7 @@ async def show_main_menu(message: types.Message, with_photo=True):
     except:
         await message.answer(TXT_START, reply_markup=builder.as_markup(resize_keyboard=True))
 
-# --- ОБРАБОТЧИКИ КНОПОК ---
+# --- ОБРАБОТЧИКИ КОМАНД И КНОПОК ---
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -135,9 +139,10 @@ async def flow_get_contact(message: types.Message):
     except Exception as e:
         logging.error(e)
 
-# --- 4. УМНЫЙ МОЗГ (GIGACHAT) ---
+# --- 4. УМНЫЙ МОЗГ (Подключен к prompts.py) ---
 @dp.message(F.text)
 async def ai_chat_handler(message: types.Message):
+    # Создаем кнопку возврата
     kb = ReplyKeyboardBuilder()
     kb.button(text=BTN_BACK) 
     
@@ -148,13 +153,13 @@ async def ai_chat_handler(message: types.Message):
     await bot.send_chat_action(message.chat.id, "typing")
 
     try:
-        # БЕРЕМ ПРОМПТ ИЗ ФАЙЛА
+        # 1. Загружаем личность из внешнего файла
         system_text = get_system_prompt()
         
-        # Склеиваем инструкцию и вопрос
-        full_text = f"{system_text}\n\nПользователь пишет: {message.text}"
+        # 2. Формируем единый текст для Сбера
+        full_text = f"{system_text}\n\nСООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ: {message.text}"
         
-        # Отправляем
+        # 3. Отправляем
         response = await asyncio.to_thread(ai_model.chat, full_text)
         ai_answer = response.choices[0].message.content
 
@@ -163,17 +168,8 @@ async def ai_chat_handler(message: types.Message):
     except Exception as e:
         logging.error(f"AI Error: {e}")
         await message.answer("Помехи в эфире... Вернись к костру.", reply_markup=kb.as_markup(resize_keyboard=True))
-        
-        # Получаем ответ
-        ai_answer = response.choices[0].message.content
 
-        await message.answer(ai_answer, reply_markup=kb.as_markup(resize_keyboard=True))
-
-    except Exception as e:
-        logging.error(f"AI Error: {e}")
-        await message.answer("Помехи в эфире... Вернись к костру.", reply_markup=kb.as_markup(resize_keyboard=True))
-
-# --- СЛУЖЕБНЫЕ ФУНКЦИИ (ВЕРНУЛИ ОБРАТНО!) ---
+# --- СЛУЖЕБНЫЕ ФУНКЦИИ (СЕРВЕР) ---
 
 async def health_check(request):
     return web.Response(text="Bot is alive")
@@ -205,5 +201,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
-
