@@ -31,7 +31,7 @@ logging.basicConfig(level=logging.INFO)
 if GEMINI_KEY:
     genai.configure(api_key=GEMINI_KEY)
     # Используем легкую и быструю модель
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-pro')
     logging.info("✅ Gemini AI подключен успешно!")
 else:
     model = None
@@ -215,5 +215,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
 
