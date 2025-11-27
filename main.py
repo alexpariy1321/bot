@@ -13,7 +13,7 @@ import google.generativeai as genai
 
 # --- НАСТРОЙКИ ---
 ADMIN_ID = 174812505
-CHANNEL_LINK = "https://t.me/netoxicalex"
+CHANNEL_LINK = "https://t.me/netoxicHR"
 
 # Загрузка переменных (для локального теста)
 try:
@@ -222,3 +222,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
