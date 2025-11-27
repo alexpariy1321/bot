@@ -154,41 +154,34 @@ async def flow_get_contact(message: types.Message):
     except Exception as e:
         logging.error(e)
 
-# --- 4. НОВЫЙ УМНЫЙ МОЗГ (ОБРАБОТКА ТЕКСТА) ---
-# Сюда попадает всё, что НЕ кнопки и НЕ команды
+# --- 4. НОВЫЙ УМНЫЙ МОЗГ (ИСПРАВЛЕННЫЙ) ---
 @dp.message(F.text)
 async def ai_chat_handler(message: types.Message):
-    # 1. Если нет ключа - отправляем заглушку
+    # 1. Сразу создаем кнопку возврата (чтобы она была доступна всегда)
+    kb = ReplyKeyboardBuilder()
+    kb.button(text=BTN_BACK)
+    
+    # 2. Если нет ключа
     if not model:
-        kb = ReplyKeyboardBuilder()
-        kb.button(text=BTN_BACK)
         await message.answer("Мозги на профилактике. Нажми кнопку 'В начало'.", reply_markup=kb.as_markup(resize_keyboard=True))
         return
 
-    # 2. Показываем "печатает..." (чтобы юзер видел, что мы думаем)
     await bot.send_chat_action(message.chat.id, "typing")
 
     try:
-        # 3. Формируем запрос к AI
-        # Соединяем Инструкцию + Вопрос пользователя
+        # 3. Запрос к AI
         full_prompt = f"{SYSTEM_PROMPT}\n\nПОЛЬЗОВАТЕЛЬ ПИШЕТ: {message.text}"
-        
-        # 4. Получаем ответ (в отдельном потоке, чтобы бот не завис)
         response = await asyncio.to_thread(model.generate_content, full_prompt)
         ai_answer = response.text
 
-        # 5. Добавляем к ответу кнопку возврата (чтобы не застрял)
-        kb = ReplyKeyboardBuilder()
-        kb.button(text=BTN_BACK)
-        
-        # Отправляем ответ
+        # 4. Ответ (успех)
         await message.answer(ai_answer, reply_markup=kb.as_markup(resize_keyboard=True))
 
     except Exception as e:
-        # Если Google заглючил
+        # 5. Если ошибка - пишем в лог и отвечаем юзеру
         logging.error(f"AI Error: {e}")
-        await message.answer("Помехи в связи с ноосферой... Попробуй позже или вернись к костру.", reply_markup=kb.as_markup(resize_keyboard=True))
-
+        # Теперь переменная kb точно существует!
+        await message.answer("Помехи в связи... Попробуй еще раз или вернись к костру.", reply_markup=kb.as_markup(resize_keyboard=True))
 
 # --- СЛУЖЕБНЫЕ ФУНКЦИИ (САМО-ПИНГ + СЕРВЕР) ---
 async def health_check(request):
@@ -222,4 +215,5 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
 
