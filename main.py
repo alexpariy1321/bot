@@ -10,7 +10,7 @@ import aiohttp
 
 # --- БИБЛИОТЕКИ ---
 from gigachat import GigaChat
-from prompts import get_system_prompt  # Импорт мозгов из файла prompts.py
+from prompts import get_system_prompt  # Импорт мозгов
 
 # --- НАСТРОЙКИ ---
 ADMIN_ID = 174812505
@@ -29,7 +29,6 @@ logging.basicConfig(level=logging.INFO)
 
 # --- НАСТРОЙКА AI ---
 if GIGA_KEY:
-    # verify_ssl_certs=False критически важно для Render
     ai_model = GigaChat(credentials=GIGA_KEY, verify_ssl_certs=False)
     logging.info("✅ GigaChat подключен!")
 else:
@@ -39,11 +38,15 @@ else:
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# --- ТЕКСТЫ И КНОПКИ ---
+# --- ТЕКСТЫ КНОПОК ---
 BTN_BATTERY = "🔋 Батарейка на нуле"
 BTN_FOG = "🌫 Я в тумане"
 BTN_ANGER = "🔥 Меня всё бесит"
 BTN_LOOK = "👀 Просто смотрю"
+
+# Новая главная кнопка
+BTN_DIRECT = "🚪 Постучаться к Алексею" 
+
 BTN_BACK = "🔙 В начало (Костёр)"
 BTN_CONTACT = "✅ Да, давай попробуем"
 BTN_READ = "🤔 Хочу сначала почитать"
@@ -53,19 +56,21 @@ TXT_START = (
     "Тишина. Ты добрался.\n"
     "Здесь не нужно притворяться, что у тебя всё под контролем.\n\n"
     "Я — цифровой проводник Алексея. Моя задача — помочь тебе сделать выбор без давления.\n\n"
-    "Что ты чувствуешь прямо сейчас\n\n?"
-    "Если не хочешь запускать кнопки, а хочешь просто поговорить, пиши, я много могу!\n\n"
-    "Можешь задавать любой вопрос или писать, что в душе."
+    "Что ты чувствуешь прямо сейчас?"
 )
 
 # --- ФУНКЦИИ МЕНЮ ---
 async def show_main_menu(message: types.Message, with_photo=True):
     builder = ReplyKeyboardBuilder()
+    # Добавляем кнопки по порядку
     builder.button(text=BTN_BATTERY)
     builder.button(text=BTN_FOG)
     builder.button(text=BTN_ANGER)
     builder.button(text=BTN_LOOK)
-    builder.adjust(2)
+    builder.button(text=BTN_DIRECT) # Пятая кнопка
+    
+    # Настройка сетки: 2 в ряду, 2 в ряду, 1 в ряду (большая)
+    builder.adjust(2, 2, 1)
     
     try:
         if with_photo:
@@ -76,7 +81,7 @@ async def show_main_menu(message: types.Message, with_photo=True):
     except:
         await message.answer(TXT_START, reply_markup=builder.as_markup(resize_keyboard=True))
 
-# --- ОБРАБОТЧИКИ КОМАНД И КНОПОК ---
+# --- ОБРАБОТЧИКИ ---
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -107,18 +112,24 @@ async def flow_anger(message: types.Message):
 async def flow_skeptic(message: types.Message):
     builder = InlineKeyboardBuilder()
     builder.button(text="📢 Перейти в Канал", url=CHANNEL_LINK)
+    
+    # Внизу тоже добавляем кнопку связи
     kb_back = ReplyKeyboardBuilder()
+    kb_back.button(text=BTN_DIRECT)
     kb_back.button(text=BTN_BACK)
+    kb_back.adjust(1)
+    
     await message.answer("Хорошая стратегия. Почитай канал Алексея без цензуры:", reply_markup=builder.as_markup())
     await message.answer("Как надумаешь — костёр горит здесь.", reply_markup=kb_back.as_markup(resize_keyboard=True))
 
-@dp.message(F.text.in_({BTN_CONTACT, BTN_FIGHT}))
+# ОБРАБОТЧИК ЗАПРОСА КОНТАКТА (Добавили сюда BTN_DIRECT)
+@dp.message(F.text.in_({BTN_CONTACT, BTN_FIGHT, BTN_DIRECT}))
 async def flow_contact_request(message: types.Message):
     builder = ReplyKeyboardBuilder()
     builder.button(text="📱 Отправить мой контакт", request_contact=True)
     builder.button(text=BTN_BACK)
     builder.adjust(1)
-    await message.answer("Принято. Нажми кнопку ниже, чтобы Алексей мог связаться.", reply_markup=builder.as_markup(resize_keyboard=True))
+    await message.answer("Принято. Нажми кнопку ниже, чтобы поделиться контактом с Алексеем.", reply_markup=builder.as_markup(resize_keyboard=True))
 
 @dp.message(F.contact)
 async def flow_get_contact(message: types.Message):
@@ -140,12 +151,14 @@ async def flow_get_contact(message: types.Message):
     except Exception as e:
         logging.error(e)
 
-# --- 4. УМНЫЙ МОЗГ (С ЗАЩИТОЙ ОТ СБОЕВ) ---
+# --- 4. УМНЫЙ МОЗГ (С КНОПКОЙ СВЯЗИ) ---
 @dp.message(F.text)
 async def ai_chat_handler(message: types.Message):
-    # Создаем кнопку возврата
+    # Создаем кнопки: Сначала "Постучаться", потом "Назад"
     kb = ReplyKeyboardBuilder()
-    kb.button(text=BTN_BACK) 
+    kb.button(text=BTN_DIRECT) # Теперь можно записаться прямо из диалога с ИИ
+    kb.button(text=BTN_BACK)
+    kb.adjust(1)
     
     if not ai_model:
         await message.answer("Мозги отключены. Жми кнопку.", reply_markup=kb.as_markup(resize_keyboard=True))
@@ -153,15 +166,14 @@ async def ai_chat_handler(message: types.Message):
 
     await bot.send_chat_action(message.chat.id, "typing")
 
-    # Формируем текст
     try:
         system_text = get_system_prompt()
     except:
-        system_text = "Ты — помощник." # Заглушка, если файл prompts.py не читается
-    
+        system_text = "Ты — помощник."
+
     full_text = f"{system_text}\n\nСООБЩЕНИЕ ПОЛЬЗОВАТЕЛЯ: {message.text}"
 
-    # ПОПЫТКА №1
+    # Логика с повторными попытками (Retry)
     try:
         response = await asyncio.to_thread(ai_model.chat, full_text)
         ai_answer = response.choices[0].message.content
@@ -169,18 +181,14 @@ async def ai_chat_handler(message: types.Message):
 
     except Exception as e:
         logging.warning(f"⚠️ Попытка 1 не удалась: {e}. Пробуем снова...")
-        
-        # ПОПЫТКА №2 (Если Сбер затупил или TimeOut)
         try:
-            await asyncio.sleep(1) # Даем серверу передышку
+            await asyncio.sleep(1)
             response = await asyncio.to_thread(ai_model.chat, full_text)
             ai_answer = response.choices[0].message.content
             await message.answer(ai_answer, reply_markup=kb.as_markup(resize_keyboard=True))
-            
         except Exception as e2:
-            # Если и второй раз не вышло - сдаемся честно
             logging.error(f"❌ AI Fatal Error: {e2}")
-            await message.answer("Связь с ноосферой временно прервана... Попробуй спросить чуть позже.", reply_markup=kb.as_markup(resize_keyboard=True))
+            await message.answer("Связь с ноосферой прервалась. Попробуй позже.", reply_markup=kb.as_markup(resize_keyboard=True))
 
 # --- СЛУЖЕБНЫЕ ФУНКЦИИ ---
 
@@ -214,4 +222,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-
