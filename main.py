@@ -10,7 +10,7 @@ import aiohttp # Нужно для пинга (если оставили его)
 
 # --- НАСТРОЙКИ ---
 ADMIN_ID = 174812505  # Ваш ID
-CHANNEL_LINK = "https://t.me/netoxicalex" 
+CHANNEL_LINK = "https://t.me/netoxicHR" 
 
 try:
     from dotenv import load_dotenv
@@ -172,3 +172,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
